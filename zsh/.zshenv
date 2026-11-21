@@ -3,13 +3,15 @@
 # Keep this file minimal: PATH, XDG vars, universal env vars only.
 # No aliases, no prompts, no interactive tools, no heavy init.
 
+[[ -f "$HOME/.config/env/.vars" ]] && source "$HOME/.config/env/.vars"
+
 # XDG base directories
 export XDG_CONFIG_HOME="$HOME/.config"
 export XDG_DATA_HOME="$HOME/.local/share"
 export XDG_CACHE_HOME="$HOME/.cache"
 
 # Antigravity
-export PATH="/Users/mkoelle/.antigravity/antigravity/bin:$PATH"
+export PATH="$HOME/.antigravity/antigravity/bin:$PATH"
 
 # Homebrew (PATH only)
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
@@ -23,3 +25,6 @@ export PATH="$HOME/.local/bin:$PATH"
 # Default editor
 export VISUAL="code"
 export EDITOR="code"
+
+# uv
+export PATH="$HOME/.local/share/../bin:$PATH"

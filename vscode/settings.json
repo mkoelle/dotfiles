@@ -10,6 +10,10 @@
   "git.confirmSync": false,
   "git.autofetch": true,
   "workbench.startupEditor": "none",
-  "workbench.colorTheme": "Dark Modern",
-  "files.autoSave": "onFocusChange"
+  "workbench.colorTheme": "Visual Studio Dark",
+  "files.autoSave": "onFocusChange",
+  "editor.fontFamily": "FiraCode Nerd Font Mono, Menlo, Monaco, 'Courier New', monospace",
+  "terminal.integrated.fontFamily": "FiraCode Nerd Font Mono",
+  "claudeCode.preferredLocation": "panel",
+  "claudeCode.hideOnboarding": true
 }

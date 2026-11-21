@@ -28,11 +28,14 @@ brew "thefuck"
 brew "tre-command"
 brew "yq"
 brew "zoxide"
+cask "displaylink"
+brew "rtk"
 
 # -----------------------------
 # Fonts
 # -----------------------------
 cask "font-fira-code"
+cask "font-fira-code-nerd-font"
 
 # -----------------------------
 # Developer tools (GUI)
