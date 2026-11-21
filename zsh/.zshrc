@@ -1,7 +1,7 @@
 # ~/.zshrc
 # Loads for interactive shells only.
 # Put prompts, aliases, keybindings, zoxide, fzf, starship, atuin, etc.
-# No PATH manipulation or heavy environment setup.
+# No PATH manipulation or environment setup (those go in ~/.zshenv or ~/.zprofile).
 
 # History (Atuin)
 eval "$(atuin init zsh)"

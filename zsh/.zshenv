@@ -1,8 +1,10 @@
 # ~/.zshenv
-# Loads for every shell (login + non‑login, interactive + non‑interactive).
+# Loads for every shell (login + non-login, interactive + non-interactive).
 # Keep this file minimal: PATH, XDG vars, universal env vars only.
+# Secrets go in ~/.config/env/.vars (outside this repo), never here.
 # No aliases, no prompts, no interactive tools, no heavy init.
 
+# Private env vars and API keys, kept outside this repo
 [[ -f "$HOME/.config/env/.vars" ]] && source "$HOME/.config/env/.vars"
 
 # XDG base directories
