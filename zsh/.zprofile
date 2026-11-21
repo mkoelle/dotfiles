@@ -7,6 +7,4 @@
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
 # Initialize mise (unified runtime manager)
-# eval "$(mise activate zsh)"
-
-eval "$(/Users/mkoelle/.local/bin/mise activate zsh)"
+eval "$("$HOME/.local/bin/mise" activate zsh)"

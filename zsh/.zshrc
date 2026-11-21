@@ -25,7 +25,3 @@ alias ll="ls -lah"
 alias gs="git status"
 alias docker="podman"
 alias ch="code . -r"
-
-# Added by Antigravity IDE
-export PATH="/Users/mkoelle/.antigravity-ide/antigravity-ide/bin:$PATH"
-
