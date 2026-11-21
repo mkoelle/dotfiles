@@ -1,7 +1,11 @@
 # ~/.zshenv
-# Loads for every shell (login + non‑login, interactive + non‑interactive).
+# Loads for every shell (login + non-login, interactive + non-interactive).
 # Keep this file minimal: PATH, XDG vars, universal env vars only.
+# Secrets go in ~/.config/env/.vars (outside this repo), never here.
 # No aliases, no prompts, no interactive tools, no heavy init.
+
+# Private env vars and API keys, kept outside this repo
+[[ -f "$HOME/.config/env/.vars" ]] && source "$HOME/.config/env/.vars"
 
 # XDG base directories
 export XDG_CONFIG_HOME="$HOME/.config"
@@ -9,7 +13,10 @@ export XDG_DATA_HOME="$HOME/.local/share"
 export XDG_CACHE_HOME="$HOME/.cache"
 
 # Antigravity
-export PATH="/Users/mkoelle/.antigravity/antigravity/bin:$PATH"
+export PATH="$HOME/.antigravity/antigravity/bin:$PATH"
+
+# Antigravity IDE
+export PATH="$HOME/.antigravity-ide/antigravity-ide/bin:$PATH"
 
 # Homebrew (PATH only)
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
