@@ -1,5 +1,6 @@
 {
   "editor.formatOnSave": true,
+  "editor.fontFamily": "'FiraCode Nerd Font', Menlo, Monaco, 'Courier New', monospace",
   "editor.tabSize": 2,
   "editor.renderWhitespace": "selection",
   "files.trimTrailingWhitespace": true,
@@ -10,10 +11,11 @@
   "git.confirmSync": false,
   "git.autofetch": true,
   "workbench.startupEditor": "none",
-  "workbench.colorTheme": "Visual Studio Dark",
+  "workbench.colorTheme": "Dark Modern",
   "files.autoSave": "onFocusChange",
-  "editor.fontFamily": "FiraCode Nerd Font Mono, Menlo, Monaco, 'Courier New', monospace",
-  "terminal.integrated.fontFamily": "FiraCode Nerd Font Mono",
-  "claudeCode.preferredLocation": "panel",
-  "claudeCode.hideOnboarding": true
+  "colorizedMarkdownPreviewTheme.variantId": "aqua",
+  "markdownColorful.palette": "monokai",
+  "git.blame.editorDecoration.enabled": true,
+  "chat.viewSessions.orientation": "stacked",
+  "window.title": "${rootName}${separator}${activeEditorShort}"
 }

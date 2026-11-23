@@ -31,6 +31,7 @@ The goal is a clean, unified environment across all machines with minimal duplic
 |   +-- mac_bootstrap.sh      # macOS full setup
 |   +-- windows_setup.ps1     # Windows full setup
 |   +-- powershell_tools_setup.ps1
+|   +-- mac_post_setup.sh     # Configure global RTK integration for Claude Code
 |   +-- debian/               # Debian install scripts
 |   +-- ubuntu/               # Ubuntu install scripts
 +-- vscode/
@@ -72,6 +73,23 @@ This will:
 - Symlink `zsh/`, `git/`, and `mise/` into `$HOME` using GNU stow
 - Symlink VS Code settings and extensions into the macOS config directory
 - Set zsh as the default shell
+
+Pass `--dry-run` to preview the bootstrap commands without applying changes.
+
+4. Configure VS Code and RTK for Claude Code:
+
+   ```sh
+   ./scripts/mac_post_setup.sh
+   ```
+
+The script configures your default Git identity and global ignore rules, and
+can configure a personal GitHub email and SSH key. It also links VS Code
+settings, installs recommended extensions, and configures RTK's global Claude
+Code integration. The Brewfile installs RTK.
+
+Pass `--dry-run` to preview the changes. Use `--no-git` to skip default Git
+identity and ignore setup, `--no-personal-git` to skip personal GitHub
+settings, `--no-vscode` to skip VS Code, or `--no-rtk` to skip RTK setup.
 
 ## Linux Setup (Debian/Ubuntu)
 
