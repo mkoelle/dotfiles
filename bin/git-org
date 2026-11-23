@@ -4,16 +4,21 @@ git-org: clone/sync all repos for an org/group into a Go-like workspace layout.
 
 Layout:
   ~/src/<host>/<team>/<repo>
+  GitLab subgroup projects retain their full group/subgroup path:
+  ~/src/<host>/<group>/<subgroup>/.../<repo>
 
 Examples:
   git-org clone github my-org --proto ssh
   git-org clone gitlab platform/observability --host gitlab.com --proto https
   git-org list  github my-org
-  git-org sync  github my-org
 
-Auth (recommended) via env vars:
-  GITHUB_TOKEN  - GitHub API
-  GITLAB_TOKEN  - GitLab API
+  # Auto-detect from cwd (when inside ~/src/<host>/<team>/...):
+  cd ~/src/github.com/my-org/some-repo
+  git-org sync
+  git-org list
+
+Auth precedence:
+  GITHUB_TOKEN / GITLAB_TOKEN env var  >  unauthenticated
 """
 
 from __future__ import annotations
@@ -25,6 +30,7 @@ import pathlib
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -41,14 +47,37 @@ def http_json(url: str, headers: dict[str, str], timeout: int = 30):
 
 
 def run(cmd: list[str], cwd: pathlib.Path | None = None):
-    p = subprocess.Popen(cmd, cwd=str(cwd) if cwd else None)
-    rc = p.wait()
-    if rc != 0:
-        raise RuntimeError(f"Command failed ({rc}): {' '.join(cmd)}")
+    subprocess.run(cmd, cwd=cwd, check=True)
 
 
 def ensure_dir(p: pathlib.Path):
     p.mkdir(parents=True, exist_ok=True)
+
+
+def fetch_paginated(
+    url: str,
+    headers: dict[str, str],
+    per_page: int,
+    page_delay: float = 0,
+) -> list[dict]:
+    results: list[dict] = []
+    while True:
+        data = http_json(url, headers=headers)
+        if not isinstance(data, list):
+            raise RuntimeError(f"Unexpected API response: {data}")
+        results.extend(data)
+        if len(data) < per_page:
+            return results
+
+        parsed = urllib.parse.urlparse(url)
+        query = urllib.parse.parse_qs(parsed.query)
+        page = int(query.get("page", ["1"])[0])
+        query["page"] = [str(page + 1)]
+        url = parsed._replace(
+            query=urllib.parse.urlencode({key: values[0] for key, values in query.items()})
+        ).geturl()
+        if page_delay:
+            time.sleep(page_delay)
 
 
 def git_clone_or_fetch(repo_url: str, dest: pathlib.Path):
@@ -62,13 +91,91 @@ def git_clone_or_fetch(repo_url: str, dest: pathlib.Path):
     run(["git", "clone", repo_url, str(dest)])
 
 
+# ---------------------------------------------------------------------------
+# Provider detection
+# ---------------------------------------------------------------------------
+
+HOST_PROVIDER_MAP: list[tuple[str, str]] = [
+    ("github", "github"),
+    ("gitlab", "gitlab"),
+]
+
+
+def _match_provider_by_name(host: str) -> str | None:
+    """Instant match when the hostname contains a known provider name."""
+    lower = host.lower()
+    for substr, prov in HOST_PROVIDER_MAP:
+        if substr in lower:
+            return prov
+    return None
+
+
+def _probe_provider(host: str) -> str | None:
+    """Hit well-known API endpoints; even a 401/403 confirms the provider."""
+    probes = [
+        (f"https://{host}/api/v4/version", "gitlab"),
+        (f"https://{host}/api/v3",          "github"),
+    ]
+    for url, provider in probes:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "git-org"})
+            urllib.request.urlopen(req, timeout=5)
+            return provider
+        except urllib.error.HTTPError as e:
+            if e.code < 404:
+                return provider
+        except Exception:
+            pass
+    return None
+
+
+def detect_provider_from_host(host: str) -> str | None:
+    """Identify provider: fast name match first, then network probe."""
+    prov = _match_provider_by_name(host)
+    if prov:
+        return prov
+    eprint(f"[auto] probing {host} to identify provider…")
+    prov = _probe_provider(host)
+    if prov:
+        eprint(f"[auto] detected {prov} via API probe")
+    return prov
+
+
+def detect_from_cwd(root: str) -> tuple[str | None, str | None, str | None]:
+    """Detect (provider, team, host) from cwd.
+
+    Expects:  <root>/<host>/<team>[/<repo>/...]
+    """
+    cwd = pathlib.Path.cwd().resolve()
+    root_path = pathlib.Path(root).expanduser().resolve()
+
+    try:
+        rel = cwd.relative_to(root_path)
+    except ValueError:
+        return None, None, None
+
+    parts = rel.parts
+    if len(parts) < 2:
+        return None, None, None
+
+    host = parts[0]
+    team = parts[1]
+    provider = detect_provider_from_host(host)
+
+    return provider, team, host
+
+
+# ---------------------------------------------------------------------------
+# Providers
+# ---------------------------------------------------------------------------
+
 class Provider:
     name: str
 
     def __init__(self, host: str, token: str | None, proto: str):
         self.host = host
         self.token = token
-        self.proto = proto  # ssh|https
+        self.proto = proto
 
     def list_repos(self, team: str) -> list[dict]:
         raise NotImplementedError
@@ -90,43 +197,16 @@ class GitHubProvider(Provider):
 
         base = "https://api.github.com"
         per_page = 100
-        repos: list[dict] = []
-
-        def fetch_all(url0: str):
-            url = url0
-            while True:
-                data = http_json(url, headers=headers)
-                if not isinstance(data, list):
-                    raise RuntimeError(f"Unexpected GitHub response: {data}")
-                repos.extend(data)
-                if len(data) < per_page:
-                    break
-
-                # paginate via page=
-                parsed = urllib.parse.urlparse(url)
-                qs = urllib.parse.parse_qs(parsed.query)
-                page = int(qs.get("page", ["1"])[0])
-                qs["page"] = [str(page + 1)]
-                new_q = urllib.parse.urlencode({k: v[0] for k, v in qs.items()})
-                url = parsed._replace(query=new_q).geturl()
-
-        # Try org first; fallback to user
-        org_url = f"{base}/orgs/{urllib.parse.quote(team)}/repos?per_page={per_page}&page=1&type=all"
-        user_url = f"{base}/users/{urllib.parse.quote(team)}/repos?per_page={per_page}&page=1&type=all"
+        encoded_team = urllib.parse.quote(team, safe="")
+        org_url = f"{base}/orgs/{encoded_team}/repos?per_page={per_page}&page=1&type=all"
+        user_url = f"{base}/users/{encoded_team}/repos?per_page={per_page}&page=1&type=all"
 
         try:
-            fetch_all(org_url)
-        except Exception as ex:
-            repos.clear()
-            try:
-                fetch_all(user_url)
-            except Exception:
-                raise RuntimeError(
-                    f"Failed listing GitHub repos for '{team}' as org or user. "
-                    f"Org attempt error: {ex}"
-                )
-
-        return repos
+            return fetch_paginated(org_url, headers, per_page)
+        except urllib.error.HTTPError as ex:
+            if ex.code != 404:
+                raise
+            return fetch_paginated(user_url, headers, per_page)
 
     def pick_clone_url(self, repo: dict) -> str:
         return repo["ssh_url"] if self.proto == "ssh" else repo["clone_url"]
@@ -144,7 +224,6 @@ class GitLabProvider(Provider):
             headers["PRIVATE-TOKEN"] = self.token
 
         per_page = 100
-        projects: list[dict] = []
         base = f"https://{self.host}/api/v4"
 
         group = urllib.parse.quote(team, safe="")
@@ -153,23 +232,7 @@ class GitLabProvider(Provider):
             f"?include_subgroups=true&per_page={per_page}&page=1&simple=true"
         )
 
-        while True:
-            data = http_json(url, headers=headers)
-            if not isinstance(data, list):
-                raise RuntimeError(f"Unexpected GitLab response: {data}")
-            projects.extend(data)
-            if len(data) < per_page:
-                break
-
-            parsed = urllib.parse.urlparse(url)
-            qs = urllib.parse.parse_qs(parsed.query)
-            page = int(qs.get("page", ["1"])[0])
-            qs["page"] = [str(page + 1)]
-            new_q = urllib.parse.urlencode({k: v[0] for k, v in qs.items()})
-            url = parsed._replace(query=new_q).geturl()
-            time.sleep(0.05)  # be gentle on self-hosted
-
-        return projects
+        return fetch_paginated(url, headers, per_page, page_delay=0.05)
 
     def pick_clone_url(self, repo: dict) -> str:
         return repo["ssh_url_to_repo"] if self.proto == "ssh" else repo["http_url_to_repo"]
@@ -185,7 +248,6 @@ def resolve_provider(provider_name: str, host: str | None, proto: str) -> Provid
     if provider_name not in PROVIDERS:
         raise RuntimeError(f"Unknown provider: {provider_name}")
 
-    # Defaults
     if not host:
         host = "github.com" if provider_name == "github" else "gitlab.com"
 
@@ -202,7 +264,59 @@ def repo_name(repo: dict) -> str:
     return repo.get("name") or repo.get("path") or repo.get("path_with_namespace", "").split("/")[-1]
 
 
+def repo_destination(root: pathlib.Path, provider: Provider, team: str, repo: dict) -> pathlib.Path:
+    namespace = repo.get("path_with_namespace") or repo.get("full_name")
+    if not namespace:
+        namespace = f"{team}/{repo_name(repo)}"
+    if not isinstance(namespace, str):
+        raise RuntimeError(f"Invalid repository namespace: {namespace!r}")
+
+    parts = namespace.split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        raise RuntimeError(f"Invalid repository namespace: {namespace!r}")
+
+    return root / provider.host / pathlib.Path(*parts)
+
+
+# ---------------------------------------------------------------------------
+# Resolve args: explicit > detected from cwd > error
+# ---------------------------------------------------------------------------
+
+def resolve_args(args) -> None:
+    """Fill in provider / team / host from cwd when not given explicitly."""
+    det_provider, det_team, det_host = detect_from_cwd(args.root)
+
+    if not args.provider:
+        if det_provider:
+            args.provider = det_provider
+            eprint(f"[auto] provider={args.provider}  (detected from cwd)")
+        else:
+            raise RuntimeError(
+                "Could not detect provider from cwd. "
+                "Supply it explicitly:  git-org <cmd> <provider> <team>"
+            )
+
+    if not args.team:
+        if det_team:
+            args.team = det_team
+            eprint(f"[auto] team={args.team}  (detected from cwd)")
+        else:
+            raise RuntimeError(
+                "Could not detect team from cwd. "
+                "Supply it explicitly:  git-org <cmd> <provider> <team>"
+            )
+
+    if not args.host and det_host:
+        args.host = det_host
+        eprint(f"[auto] host={args.host}  (detected from cwd)")
+
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+
 def cmd_list(args) -> int:
+    resolve_args(args)
     provider = resolve_provider(args.provider, args.host, args.proto)
     repos = provider.list_repos(args.team)
 
@@ -217,6 +331,7 @@ def cmd_list(args) -> int:
 
 
 def cmd_clone_or_sync(args) -> int:
+    resolve_args(args)
     provider = resolve_provider(args.provider, args.host, args.proto)
     root = pathlib.Path(args.root).expanduser().resolve()
 
@@ -233,7 +348,7 @@ def cmd_clone_or_sync(args) -> int:
             continue
 
         clone_url = provider.pick_clone_url(r)
-        dest = root / provider.host / args.team / name
+        dest = repo_destination(root, provider, args.team, r)
 
         if args.dry_run:
             print(f"{clone_url} -> {dest}")
@@ -243,18 +358,33 @@ def cmd_clone_or_sync(args) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="git-org",
-        description="Clone/sync all repos for an org/group into ~/src/<host>/<team>/<repo>.",
+        description="Clone/sync repos into ~/src/<host>/<namespace>/<repo>, preserving provider namespace paths.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
 
     sub = p.add_subparsers(dest="command")
 
     def add_common(sp):
-        sp.add_argument("provider", choices=sorted(PROVIDERS.keys()), help="Provider: github | gitlab")
-        sp.add_argument("team", help="GitHub org/user OR GitLab group (id or full path)")
+        sp.add_argument(
+            "provider",
+            nargs="?",
+            default=None,
+            choices=sorted(PROVIDERS.keys()),
+            help="Provider: github | gitlab  (auto-detected from cwd when omitted)",
+        )
+        sp.add_argument(
+            "team",
+            nargs="?",
+            default=None,
+            help="GitHub org/user OR GitLab group  (auto-detected from cwd when omitted)",
+        )
         sp.add_argument("--host", default=None, help="VCS host (default: github.com or gitlab.com)")
         sp.add_argument("--proto", choices=["ssh", "https"], default="ssh", help="Clone protocol (default: ssh)")
         sp.add_argument("--root", default=os.path.expanduser("~/src"), help="Workspace root (default: ~/src)")
@@ -279,14 +409,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str]) -> int:
     parser = build_parser()
 
-    # If no args: show help + exit non-error (nice UX)
     if len(argv) == 0:
         parser.print_help(sys.stdout)
         return 0
 
     args = parser.parse_args(argv)
 
-    # If subcommand missing: show help
     if not getattr(args, "command", None):
         parser.print_help(sys.stdout)
         return 0
