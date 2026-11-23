@@ -4,69 +4,69 @@
 # -----------------------------
 # Core package manager + shell
 # -----------------------------
-brew "zsh"
-brew "bash-completion"
+brew "zsh" # Modern shell with scripting, completion, and customization features.
+brew "bash-completion" # Adds command completion to Bash.
 
 # -----------------------------
 # Unified runtime manager
 # -----------------------------
-brew "mise"
+brew "mise" # Manage language runtimes and development tools by project.
 
 # -----------------------------
 # System utilities
 # -----------------------------
-brew "atuin"
-brew "awscli"
-brew "curl"
-brew "fzf"
-brew "git"
-brew "jq"
-brew "pamburus/tap/hl"
-brew "starship"
-brew "stow"
-brew "thefuck"
-brew "tre-command"
-brew "yq"
-brew "zoxide"
-cask "displaylink"
-brew "rtk"
+brew "atuin" # Searchable shell history with optional sync.
+brew "awscli" # AWS command-line tools.
+brew "bat" # Better cat. Syntax highlighting, Git integration, and readable file previews.
+brew "curl" # Transfer data to and from URLs.
+brew "fzf" # Fuzzy finder for files, history, and command output.
+brew "git" # Distributed version control.
+brew "hl" # Fast structured log viewer with filtering and syntax highlighting.
+brew "jq" # Query and transform JSON data.
+brew "rtk" # Reduce and filter terminal output for coding-agent workflows.
+brew "starship" # Customizable prompt for multiple shells.
+brew "stow" # Manage dotfile symlinks.
+brew "thefuck" # Suggest corrections for mistyped shell commands.
+brew "tre-command" # Display directory trees with the tre command.
+brew "yq" # Query and transform YAML data.
+brew "zoxide" # Jump to frequently used directories.
+cask "displaylink" # Support DisplayLink docks and external displays.
 
 # -----------------------------
 # Fonts
 # -----------------------------
-cask "font-fira-code"
-cask "font-fira-code-nerd-font"
+cask "font-fira-code" # Monospaced programming font with ligatures.
+cask "font-fira-code-nerd-font" # Fira Code Nerd Font with terminal icons.
 
 # -----------------------------
 # Developer tools (GUI)
 # -----------------------------
-cask "antigravity"
-cask "bruno"
-cask "visual-studio-code"
+cask "antigravity" # Google's AI-assisted development environment.
+cask "bruno" # Desktop client for testing APIs.
+cask "visual-studio-code" # Source-code editor with extensions and debugging.
 
 # -----------------------------
 # LLM tooling (CLI)
 # -----------------------------
-cask "claude-code"
-brew "copilot"
+cask "claude-code" # Anthropic's coding agent for the terminal.
 
 # -----------------------------
 # Containers
 # -----------------------------
-cask "podman-desktop"
+cask "podman-desktop" # Desktop interface for managing containers and Kubernetes.
 
 # -----------------------------
 # Browsers
 # -----------------------------
-cask "firefox"
-cask "google-chrome"
+cask "firefox" # Mozilla web browser.
+cask "google-chrome" # Google's web browser.
 
 # -----------------------------
 # Media
 # -----------------------------
-cask "vlc"
+cask "vlc" # Media player for a wide range of audio and video formats.
 
 # -----------------------------
 # Game engine / dev tools
 # -----------------------------
-cask "godot"
+cask "godot" # Open-source game engine.
